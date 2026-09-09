@@ -5,8 +5,14 @@ const { spawn } = require('node:child_process');
 const repoRoot = path.resolve(__dirname, '..');
 const manuscriptRoot = path.join(repoRoot, 'SRD5J');
 const outputRoot = path.join(repoRoot, 'dist');
-const configPath = path.join(repoRoot, 'vivliostyle.config.js');
-const cliPath = require.resolve('@vivliostyle/cli/dist/cli.js');
+const baseConfigPath = path.join(repoRoot, 'vivliostyle.base.config.js');
+const baseConfig = require(baseConfigPath);
+const cliPath = path.join(
+  repoRoot,
+  'node_modules',
+  '.bin',
+  process.platform === 'win32' ? 'vivliostyle.cmd' : 'vivliostyle',
+);
 
 async function collectMarkdownFiles(dir) {
   const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -38,24 +44,29 @@ async function resolveBuildSource(sourcePath) {
   return sourcePath;
 }
 
+async function createBuildConfig(sourcePath, outputPath) {
+  const relativePath = path.relative(manuscriptRoot, sourcePath);
+  const title = path.basename(sourcePath, path.extname(sourcePath));
+  const config = {
+    ...baseConfig,
+    title,
+    entry: [path.relative(repoRoot, sourcePath)],
+    output: path.relative(repoRoot, outputPath),
+  };
+  const configDir = path.join(repoRoot, '.vivliostyle', 'configs');
+  const configPath = path.join(configDir, relativePath.replace(/\.md$/i, '.config.cjs'));
+  await fs.mkdir(path.dirname(configPath), { recursive: true });
+  await fs.writeFile(configPath, `module.exports = ${JSON.stringify(config, null, 2)};\n`);
+  return configPath;
+}
+
 async function runVivliostyle(sourcePath, outputPath) {
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
-
-  const title = path.basename(sourcePath, path.extname(sourcePath));
-  const args = [
-    cliPath,
-    'build',
-    sourcePath,
-    '--config',
-    configPath,
-    '--output',
-    outputPath,
-    '--title',
-    title,
-  ];
+  const configPath = await createBuildConfig(sourcePath, outputPath);
+  const args = ['build', '--config', configPath];
 
   await new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, args, {
+    const child = spawn(cliPath, args, {
       cwd: repoRoot,
       stdio: 'inherit',
     });

@@ -10,6 +10,7 @@ npm install
 ```
 
 SRD5J は `SRD5J/` に Git サブモジュールとして追加してあり、`.gitmodules` で `ignore = dirty` を設定しています。
+`npm install` 時には、テーマパッケージが参照するフォントパスの大文字小文字差異を吸収するためのエイリアスも自動作成されます。
 
 ## PDF の生成
 
@@ -29,7 +30,7 @@ npm run build
 
 ## 構成
 
-- `vivliostyle.config.js`: 共通の組版設定
+- `vivliostyle.base.config.js`: 共通の組版設定
 - `scripts/build-pdfs.js`: 対象 Markdown の収集と PDF 出力処理
 
 `scripts/build-pdfs.js` は現在そのまま Markdown を組版しますが、今後 `vivliostyle-theme-spellbook-5e` 向けの拡張記法を反映する前処理パイプラインを追加しやすい構成にしています。
