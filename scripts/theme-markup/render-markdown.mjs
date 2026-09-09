@@ -24,8 +24,8 @@ export function renderMarkdown(markdownString) {
   const metadata = readMetadata(markdownString);
   const processor = VFM(
     {
-      // 独自プラグインは組み込みのsectionize(見出しのsection化)より前段で
-      // Raw HTMLノードを注入する必要があるため、mdastPluginsの先頭に追加する。
+      // Raw HTMLノードを注入する独自プラグインはsectionize前に実行し、
+      // sectionize後に必要な後処理(クリーチャーブロックのsection展開)だけ末尾で実行する。
       editPlugins: (plugins) => ({
         ...plugins,
         mdastPlugins: [
