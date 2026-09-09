@@ -12,6 +12,7 @@ import { VFM, readMetadata } from '@vivliostyle/vfm';
 import {
   remarkSb5eCreatureBlocks,
   remarkSb5eDropcap,
+  remarkSb5eFlattenCreatureArticles,
   remarkSb5ePagebreakMarker,
 } from './sb5e-plugins.mjs';
 
@@ -32,6 +33,7 @@ export function renderMarkdown(markdownString) {
           remarkSb5eCreatureBlocks,
           remarkSb5eDropcap,
           ...plugins.mdastPlugins,
+          remarkSb5eFlattenCreatureArticles,
         ],
       }),
     },
