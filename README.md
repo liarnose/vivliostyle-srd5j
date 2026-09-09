@@ -10,7 +10,6 @@ npm install
 ```
 
 SRD5J は `SRD5J/` に Git サブモジュールとして追加してあり、`.gitmodules` で `ignore = dirty` を設定しています。
-`npm install` 時には、テーマパッケージが参照するフォントパスの大文字小文字差異を吸収するためのエイリアスも自動作成されます。
 
 ## PDF の生成
 
@@ -22,6 +21,7 @@ npm run build
 - 各 Markdown ファイルを個別に A4 PDF 化します
 - 出力先は `dist/` です
 - PDF の配置は `SRD5J/` 配下の相対パスを維持します
+- ビルド時に Vivliostyle のテーマ用ワークスペースも自動準備します
 
 例:
 

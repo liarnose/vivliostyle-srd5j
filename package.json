@@ -4,7 +4,6 @@
   "description": "paladin-nekohaus/SRD5Jをvivliostyleで組版する",
   "private": true,
   "scripts": {
-    "postinstall": "node scripts/setup-theme-font-aliases.js",
     "build": "node scripts/build-pdfs.js"
   },
   "repository": {

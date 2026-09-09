@@ -1,15 +1,12 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
-const repoRoot = path.resolve(__dirname, '..');
-const fontsourceRoot = path.join(repoRoot, 'node_modules', '@fontsource');
-
 const aliases = [
   ['yakuhanjp', 'YakuHanJP'],
   ['yakuhanmp', 'YakuHanMP'],
 ];
 
-async function ensureAlias(sourceName, aliasName) {
+async function ensureAlias(fontsourceRoot, sourceName, aliasName) {
   const sourcePath = path.join(fontsourceRoot, sourceName);
   const aliasPath = path.join(fontsourceRoot, aliasName);
 
@@ -20,12 +17,27 @@ async function ensureAlias(sourceName, aliasName) {
 }
 
 async function main() {
+  const [fontsourceRoot] = process.argv.slice(2);
+  if (!fontsourceRoot) {
+    throw new Error('fontsourceRoot is required');
+  }
+
   for (const [sourceName, aliasName] of aliases) {
-    await ensureAlias(sourceName, aliasName);
+    await ensureAlias(fontsourceRoot, sourceName, aliasName);
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+async function ensureFontAliases(fontsourceRoot) {
+  for (const [sourceName, aliasName] of aliases) {
+    await ensureAlias(fontsourceRoot, sourceName, aliasName);
+  }
+}
+
+module.exports = { ensureFontAliases };
+
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}
