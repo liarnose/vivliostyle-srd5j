@@ -16,6 +16,7 @@
   "type": "commonjs",
   "dependencies": {
     "@liarnose/vivliostyle-theme-spellbook-5e": "^0.1.2",
-    "@vivliostyle/cli": "^11.2.0"
+    "@vivliostyle/cli": "^11.2.0",
+    "@vivliostyle/vfm": "^2.7.2"
   }
 }

@@ -5,6 +5,7 @@ const { ensureFontAliases } = require('./setup-theme-font-aliases');
 
 const repoRoot = path.resolve(__dirname, '..');
 const manuscriptRoot = path.join(repoRoot, 'SRD5J');
+const buildManuscriptRoot = path.join(repoRoot, '.vivliostyle', 'manuscript');
 const outputRoot = path.join(repoRoot, 'dist');
 const baseConfigPath = path.join(repoRoot, 'vivliostyle.base.config.js');
 const baseConfig = require(baseConfigPath);
@@ -43,6 +44,10 @@ async function collectMarkdownFiles(dir) {
     entries.map(async (entry) => {
       const entryPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
+        // node_modules や隠しディレクトリに混入した .md を拾わないようにする
+        if (entry.name === 'node_modules' || entry.name.startsWith('.')) {
+          return [];
+        }
         return collectMarkdownFiles(entryPath);
       }
       if (
@@ -59,16 +64,38 @@ async function collectMarkdownFiles(dir) {
 }
 
 function toOutputPath(sourcePath) {
-  const relativePath = path.relative(manuscriptRoot, sourcePath);
-  return path.join(outputRoot, relativePath.replace(/\.md$/i, '.pdf'));
+  const relativePath = path.relative(buildManuscriptRoot, sourcePath);
+  return path.join(outputRoot, relativePath.replace(path.extname(relativePath), '.pdf'));
 }
 
-async function resolveBuildSource(sourcePath) {
-  return sourcePath;
+async function renderThemeMarkup(markdownFiles) {
+  // vivliostyle-theme-spellbook-5e独自のRaw HTML構文をAST上で自動付与してから、
+  // 組版可能なHTMLとして書き出す（.mdは変換元として残し、.htmlをビルド対象にする）。
+  const { renderMarkdown } = await import('./theme-markup/render-markdown.mjs');
+  const htmlFiles = [];
+  for (const markdownPath of markdownFiles) {
+    const markdownString = await fs.readFile(markdownPath, 'utf8');
+    const html = renderMarkdown(markdownString);
+    const htmlPath = markdownPath.replace(/\.md$/i, '.html');
+    await fs.writeFile(htmlPath, html);
+    htmlFiles.push(htmlPath);
+  }
+  return htmlFiles;
+}
+
+async function stageManuscript() {
+  await fs.rm(buildManuscriptRoot, { recursive: true, force: true });
+  await fs.cp(manuscriptRoot, buildManuscriptRoot, {
+    recursive: true,
+    filter: (source) => {
+      const pathParts = source.split(path.sep);
+      return !pathParts.includes('node_modules') && !pathParts.includes('.git');
+    },
+  });
 }
 
 async function createBuildConfig(sourcePath, outputPath) {
-  const relativePath = path.relative(manuscriptRoot, sourcePath);
+  const relativePath = path.relative(buildManuscriptRoot, sourcePath);
   const title = path.basename(sourcePath, path.extname(sourcePath));
   const config = {
     ...baseConfig,
@@ -77,7 +104,7 @@ async function createBuildConfig(sourcePath, outputPath) {
     output: path.relative(repoRoot, outputPath),
   };
   const configDir = path.join(repoRoot, '.vivliostyle', 'configs');
-  const configPath = path.join(configDir, relativePath.replace(/\.md$/i, '.config.cjs'));
+  const configPath = path.join(configDir, relativePath.replace(path.extname(relativePath), '.config.cjs'));
   await fs.mkdir(path.dirname(configPath), { recursive: true });
   await fs.writeFile(configPath, `module.exports = ${JSON.stringify(config, null, 2)};\n`);
   return configPath;
@@ -111,16 +138,18 @@ async function ensureThemeWorkspace() {
 
 async function main() {
   await ensureThemeWorkspace();
-  const markdownFiles = await collectMarkdownFiles(manuscriptRoot);
+  await stageManuscript();
+  const markdownFiles = await collectMarkdownFiles(buildManuscriptRoot);
   if (markdownFiles.length === 0) {
     throw new Error('No Markdown files found in SRD5J.');
   }
 
-  for (const sourcePath of markdownFiles) {
-    const buildSource = await resolveBuildSource(sourcePath);
+  const htmlFiles = await renderThemeMarkup(markdownFiles);
+
+  for (const sourcePath of htmlFiles) {
     const outputPath = toOutputPath(sourcePath);
-    console.log(`Building ${path.relative(repoRoot, sourcePath)} -> ${path.relative(repoRoot, outputPath)}`);
-    await runVivliostyle(buildSource, outputPath);
+    console.log(`Building ${path.relative(buildManuscriptRoot, sourcePath)} -> ${path.relative(repoRoot, outputPath)}`);
+    await runVivliostyle(sourcePath, outputPath);
   }
 }
 
