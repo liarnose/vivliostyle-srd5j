@@ -1,0 +1,21 @@
+{
+  "name": "vivliostyle-srd5j",
+  "version": "1.0.0",
+  "description": "paladin-nekohaus/SRD5Jをvivliostyleで組版する",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-pdfs.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://localhost:26831/liarnose/vivliostyle-srd5j"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@liarnose/vivliostyle-theme-spellbook-5e": "^0.1.2",
+    "@vivliostyle/cli": "^11.2.0"
+  }
+}

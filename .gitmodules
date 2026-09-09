@@ -1,0 +1,4 @@
+[submodule "SRD5J"]
+	path = SRD5J
+	url = https://github.com/paladin-nekohaus/SRD5J.git
+	ignore = dirty
