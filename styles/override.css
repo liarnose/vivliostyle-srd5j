@@ -1,0 +1,13 @@
+/**
+ * 長大な blockquote が段組み1段の高さを超える場合、
+ * break-inside: avoid により配置可能なフラグメントが存在せず
+ * ページ分割が無限ループしてしまう問題への対処。
+ * (テーマ側は break-inside: avoid 指定のため上書きする)
+ */
+blockquote {
+  break-inside: auto;
+}
+
+table {
+  break-inside: auto !important;
+}
