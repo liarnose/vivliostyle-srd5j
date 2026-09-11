@@ -11,3 +11,12 @@ blockquote {
 table {
   break-inside: auto !important;
 }
+
+.sb5e-creature + .sb5e-creature {
+  break-before: column;
+}
+
+h2:has(+ .sb5e-creature) {
+  break-before: column;
+}
+

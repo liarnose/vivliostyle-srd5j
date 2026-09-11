@@ -96,6 +96,69 @@ export function remarkSb5ePagebreakMarker() {
   };
 }
 
+const WIDE_TABLE_OPEN_TAG = `<div style="
+  column-span: all;
+  float-reference: page;
+  float: top;
+  padding: 12q;
+  margin-block-end: 24q;
+  background-color: rgb(255 255 255 / .6);
+  box-shadow: 0 4q 16q rgb(0 0 0 / .2);
+">`;
+const WIDE_TABLE_CLOSE_TAG = '</div>';
+
+function isWideTable(node) {
+  if (node.type !== 'table' || node.children.length < 8) return false;
+  const firstRow = node.children[0];
+  return firstRow?.type === 'tableRow' && firstRow.children.length >= 3;
+}
+
+function isTableCaption(node) {
+  return (
+    node.type === 'paragraph' &&
+    node.children.length === 1 &&
+    node.children[0].type === 'strong'
+  );
+}
+
+/** 3列以上かつ8行以上の表を、キャプションごとテーマの二段抜きレイアウトで囲む。 */
+export function remarkSb5eWideTables() {
+  return (tree) => {
+    const wrapTables = (node) => {
+      if (!Array.isArray(node.children)) return;
+
+      const result = [];
+      for (const child of node.children) {
+        if (isWideTable(child)) {
+          const caption = result.at(-1);
+          if (caption && isTableCaption(caption)) {
+            result.pop();
+            result.push(
+              { type: 'html', value: WIDE_TABLE_OPEN_TAG },
+              caption,
+              child,
+              { type: 'html', value: WIDE_TABLE_CLOSE_TAG },
+            );
+            continue;
+          }
+
+          result.push(
+            { type: 'html', value: WIDE_TABLE_OPEN_TAG },
+            child,
+            { type: 'html', value: WIDE_TABLE_CLOSE_TAG },
+          );
+        } else {
+          wrapTables(child);
+          result.push(child);
+        }
+      }
+      node.children = result;
+    };
+
+    wrapTables(tree);
+  };
+}
+
 const CREATURE_OPEN_TAG = '<article class="sb5e-creature">';
 const CREATURE_CLOSE_TAG = '</article>';
 
