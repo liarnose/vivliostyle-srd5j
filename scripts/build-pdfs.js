@@ -65,6 +65,29 @@ async function collectMarkdownFiles(dir) {
   return files.flat().sort((left, right) => left.localeCompare(right));
 }
 
+function ensureBlankLineBeforeHeadings(markdown) {
+  const lines = markdown.split(/\r?\n/);
+  let inFencedCodeBlock = false;
+
+  return lines.reduce((normalizedLines, line, index) => {
+    if (/^\s*(`{3,}|~{3,})/.test(line)) {
+      inFencedCodeBlock = !inFencedCodeBlock;
+    }
+
+    const previousLine = lines[index - 1];
+    if (
+      !inFencedCodeBlock &&
+      /^#{1,6}(?:[ \t]+|$)/.test(line) &&
+      previousLine?.trim() &&
+      !/^#{1,6}(?:[ \t]+|$)/.test(previousLine)
+    ) {
+      normalizedLines.push('');
+    }
+    normalizedLines.push(line);
+    return normalizedLines;
+  }, []).join('\n');
+}
+
 function toOutputPath(sourcePath) {
   const relativePath = path.relative(buildManuscriptRoot, sourcePath);
   return path.join(outputRoot, relativePath.replace(path.extname(relativePath), '.pdf'));
@@ -98,17 +121,20 @@ async function stageManuscript() {
   for (const sourcePath of markdownFiles) {
     const relativePath = path.relative(buildManuscriptRoot, sourcePath);
     const patchPath = path.join(patchesRoot, `${relativePath}.js`);
+    const original = await fs.readFile(sourcePath, 'utf8');
+    let transformed = ensureBlankLineBeforeHeadings(original);
     let patch;
     try {
       patch = require(patchPath);
     } catch (error) {
       if (error.code === 'MODULE_NOT_FOUND') {
+        await fs.writeFile(sourcePath, transformed);
         continue;
       }
       throw error;
     }
-    const original = await fs.readFile(sourcePath, 'utf8');
-    await fs.writeFile(sourcePath, patch(original));
+    transformed = patch(transformed);
+    await fs.writeFile(sourcePath, transformed);
   }
 }
 
@@ -137,10 +163,15 @@ async function runVivliostyle(sourcePath, outputPath) {
 async function ensureThemeWorkspace() {
   const workspaceThemeRoot = path.join(repoRoot, '.vivliostyle', 'themes');
   const workspacePackageJsonPath = path.join(workspaceThemeRoot, 'package.json');
+  const compatibleThemeBaseVersion = '2.1.1';
   const workspacePackageJson = {
     private: true,
     dependencies: {
       [themePackageName]: packageJson.dependencies[themePackageName],
+      '@vivliostyle/theme-base': compatibleThemeBaseVersion,
+    },
+    overrides: {
+      '@vivliostyle/theme-base': compatibleThemeBaseVersion,
     },
   };
 

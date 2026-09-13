@@ -170,6 +170,26 @@ function isCreatureCloseTag(node) {
   return node.type === 'html' && node.value.trim() === CREATURE_CLOSE_TAG;
 }
 
+function isCreatureSection(node) {
+  return (
+    node.type === 'section' &&
+    isCreatureHeading(node.children?.[0], node.children?.[1])
+  );
+}
+
+function removeTrailingCreatureOpenTag(node) {
+  if (!Array.isArray(node?.children) || node.children.length === 0) return false;
+
+  const lastIndex = node.children.length - 1;
+  const lastChild = node.children[lastIndex];
+  if (isCreatureOpenTag(lastChild)) {
+    node.children.pop();
+    return true;
+  }
+
+  return removeTrailingCreatureOpenTag(lastChild);
+}
+
 /** 配列中の`section`ノードをすべて自身の子ノード列で置き換える(再帰的に展開)。 */
 function unwrapSections(nodes) {
   const result = [];
@@ -212,6 +232,17 @@ export function remarkSb5eFlattenCreatureArticles() {
         i++;
       }
       node.children = result;
+
+      for (let index = 1; index < node.children.length; index++) {
+        const child = node.children[index];
+        if (!isCreatureSection(child)) continue;
+
+        const previousSibling = node.children[index - 1];
+        if (!removeTrailingCreatureOpenTag(previousSibling)) continue;
+
+        child.children.unshift({ type: 'html', value: CREATURE_OPEN_TAG });
+        child.children.push({ type: 'html', value: CREATURE_CLOSE_TAG });
+      }
     };
     walk(tree);
   };
