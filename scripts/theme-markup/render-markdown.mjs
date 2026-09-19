@@ -12,8 +12,8 @@ import { VFM, readMetadata } from '@vivliostyle/vfm';
 import {
   remarkSb5eCreatureBlocks,
   remarkSb5eDropcap,
-  remarkSb5eFlattenCreatureArticles,
   remarkSb5ePagebreakMarker,
+  rehypeSb5eFlattenCreatureArticles,
   remarkSb5eWideTables,
 } from './sb5e-plugins.mjs';
 
@@ -26,8 +26,7 @@ export function renderMarkdown(markdownString) {
   const processor = VFM(
     {
       hardLineBreaks: true,
-      // Raw HTMLノードを注入する独自プラグインはsectionize前に実行し、
-      // sectionize後に必要な後処理(クリーチャーブロックのsection展開)だけ末尾で実行する。
+      // Raw HTMLノードを注入する独自プラグインはsectionize前に実行する。
       editPlugins: (plugins) => ({
         ...plugins,
         mdastPlugins: [
@@ -36,7 +35,10 @@ export function renderMarkdown(markdownString) {
           remarkSb5eDropcap,
           ...plugins.mdastPlugins,
           remarkSb5eWideTables,
-          remarkSb5eFlattenCreatureArticles,
+        ],
+        hastPlugins: [
+          ...plugins.hastPlugins,
+          rehypeSb5eFlattenCreatureArticles,
         ],
       }),
     },

@@ -3,16 +3,16 @@
  *
  * @vivliostyle/vfm の `editPlugins` フックで、
  * - クリーチャーブロック検出/ドロップキャップ/改ページ目印の各プラグインはmdastPlugins先頭に、
- * - `remarkSb5eFlattenCreatureArticles`はmdastPlugins末尾(=組み込みのsectionize後)に
- * それぞれ追加される想定。
+ * - `rehypeSb5eFlattenCreatureArticles`はrehypePlugins末尾(=Raw HTML展開後)に
+ * 追加される想定。
  *
  * `@vivliostyle/remark-sectionize`(組み込み)は見出しをdepth単位でsectionにラップするが、
  * 常にラップするとは限らず、他の見出し構成との位置関係次第でラップの有無が変わる
  * (isHtmlEnd/isDuplicatedなどの内部ヒューリスティクスに依存)。テーマのCSSは
  * `.sb5e-creature > hr` のような直接子コンビネータに依存しているため、
  * sectionizeがクリーチャーブロック内にsectionを挿入してしまうケースがあると
- * スタイルが適用されなくなる。そこでsectionize実行後にクリーチャーブロックの範囲内だけ
- * sectionノードを展開(アンラップ)し、常にフラットな構造を保証する。
+ * スタイルが適用されなくなる。そこでHTML化後にクリーチャーブロックを再構成し、
+ * 常にフラットな構造を保証する。
  */
 
 /** クリーチャー統計ブロックの1行目（種別・属性）に使われる斜体段落かどうか。 */
@@ -159,43 +159,11 @@ export function remarkSb5eWideTables() {
   };
 }
 
-const CREATURE_OPEN_TAG = '<article class="sb5e-creature">';
-const CREATURE_CLOSE_TAG = '</article>';
-
-function isCreatureOpenTag(node) {
-  return node.type === 'html' && node.value.trim() === CREATURE_OPEN_TAG;
-}
-
-function isCreatureCloseTag(node) {
-  return node.type === 'html' && node.value.trim() === CREATURE_CLOSE_TAG;
-}
-
-function isCreatureSection(node) {
-  return (
-    node.type === 'section' &&
-    isCreatureHeading(node.children?.[0], node.children?.[1])
-  );
-}
-
-function removeTrailingCreatureOpenTag(node) {
-  if (!Array.isArray(node?.children) || node.children.length === 0) return false;
-
-  const lastIndex = node.children.length - 1;
-  const lastChild = node.children[lastIndex];
-  if (isCreatureOpenTag(lastChild)) {
-    node.children.pop();
-    return true;
-  }
-
-  return removeTrailingCreatureOpenTag(lastChild);
-}
-
-/** 配列中の`section`ノードをすべて自身の子ノード列で置き換える(再帰的に展開)。 */
-function unwrapSections(nodes) {
+function unwrapHastSections(nodes) {
   const result = [];
   for (const node of nodes) {
-    if (node.type === 'section' && Array.isArray(node.children)) {
-      result.push(...unwrapSections(node.children));
+    if (node.type === 'element' && node.tagName === 'section') {
+      result.push(...unwrapHastSections(node.children ?? []));
     } else {
       result.push(node);
     }
@@ -203,46 +171,74 @@ function unwrapSections(nodes) {
   return result;
 }
 
-/**
- * sectionize実行後、`<article class="sb5e-creature">`〜`</article>`の範囲内に
- * 生成された`section`ノードを展開し、テーマCSSが前提とするフラットな構造に戻す。
- */
-export function remarkSb5eFlattenCreatureArticles() {
+function isWhitespaceText(node) {
+  return node.type === 'text' && /^\s*$/.test(node.value);
+}
+
+function isCreatureArticle(node) {
+  return (
+    node.type === 'element' &&
+    node.tagName === 'article' &&
+    node.properties?.className?.includes('sb5e-creature')
+  );
+}
+
+function isHastCreatureSection(node) {
+  if (
+    node.type !== 'element' ||
+    node.tagName !== 'section' ||
+    !node.properties?.className?.includes('level5')
+  ) {
+    return false;
+  }
+
+  const content = node.children.filter((child) => !isWhitespaceText(child));
+  return (
+    content[0]?.type === 'element' &&
+    content[0].tagName === 'h5' &&
+    content[1]?.type === 'element' &&
+    content[1].tagName === 'p' &&
+    content[1].children?.[0]?.type === 'element' &&
+    content[1].children[0].tagName === 'em'
+  );
+}
+
+function isEmptyCreatureArticle(node) {
+  return (
+    node.type === 'element' &&
+    node.tagName === 'article' &&
+    node.properties?.className?.includes('sb5e-creature') &&
+    node.children.every(isWhitespaceText)
+  );
+}
+
+/** HTML化後のクリーチャーブロックをarticleへ再構成し、section要素を展開する。 */
+export function rehypeSb5eFlattenCreatureArticles() {
   return (tree) => {
     const walk = (node) => {
       if (!Array.isArray(node.children)) return;
       node.children.forEach(walk);
 
-      const children = node.children;
-      const result = [];
-      let i = 0;
-      while (i < children.length) {
-        const child = children[i];
-        if (isCreatureOpenTag(child)) {
-          const closeIndex = children.findIndex(
-            (candidate, index) => index > i && isCreatureCloseTag(candidate),
-          );
-          if (closeIndex !== -1) {
-            result.push(child, ...unwrapSections(children.slice(i + 1, closeIndex)), children[closeIndex]);
-            i = closeIndex + 1;
-            continue;
-          }
+      if (isCreatureArticle(node)) {
+        const creatureSection = node.children.find(isHastCreatureSection);
+        if (creatureSection) {
+          node.children = unwrapHastSections(creatureSection.children);
         }
-        result.push(child);
-        i++;
       }
-      node.children = result;
 
-      for (let index = 1; index < node.children.length; index++) {
-        const child = node.children[index];
-        if (!isCreatureSection(child)) continue;
+      node.children = node.children.flatMap((child) => {
+        if (isEmptyCreatureArticle(child)) return [];
+        if (!isHastCreatureSection(child)) return [child];
 
-        const previousSibling = node.children[index - 1];
-        if (!removeTrailingCreatureOpenTag(previousSibling)) continue;
-
-        child.children.unshift({ type: 'html', value: CREATURE_OPEN_TAG });
-        child.children.push({ type: 'html', value: CREATURE_CLOSE_TAG });
-      }
+        return [
+          {
+            type: 'element',
+            tagName: 'article',
+            properties: { className: ['sb5e-creature'] },
+            children: unwrapHastSections(child.children),
+          },
+        ];
+      });
     };
     walk(tree);
   };
