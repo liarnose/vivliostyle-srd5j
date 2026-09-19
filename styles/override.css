@@ -4,19 +4,38 @@
  * ページ分割が無限ループしてしまう問題への対処。
  * (テーマ側は break-inside: avoid 指定のため上書きする)
  */
-blockquote {
+body blockquote {
   break-inside: auto;
 }
 
-table {
-  break-inside: auto !important;
+body table {
+  break-inside: auto;
 }
 
-.sb5e-creature + .sb5e-creature {
+.sb5e-creature {
+  break-before: column;
+  break-inside: auto;
+}
+
+:is(h2,h3,h4) + .sb5e-creature {
+  break-before: avoid;
+}
+
+
+:not(h1) + section.level2:has(> h2 + .sb5e-creature),
+:not(h1) + section.level2:has(> h2 + section.level3 > h3 + .sb5e-creature),
+:not(h1) + section.level2:has(> h2 + section.level3 > h3 + section.level4 > h4 + .sb5e-creature),
+:not(h2) + section.level3:has(> h3 + .sb5e-creature),
+:not(h2) + section.level3:has(> h3 + section.level4 > h4 + .sb5e-creature),
+:not(h3) + section.level4:has(> h4 + .sb5e-creature) {
   break-before: column;
 }
 
-h2:has(+ .sb5e-creature) {
-  break-before: column;
+.sb5e-creature>hr~hr~hr~p{
+  line-height: 20q;
+  font-size: 12q;
 }
 
+:root {
+  --vs-theme--primary-background-color: #e3c7b1;
+}

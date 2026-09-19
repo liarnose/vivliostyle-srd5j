@@ -54,8 +54,7 @@ async function collectMarkdownFiles(dir) {
       }
       if (
         entry.isFile() &&
-        path.extname(entry.name).toLowerCase() === '.md' &&
-        entry.name.toLowerCase() !== 'readme.md'
+        path.extname(entry.name).toLowerCase() === '.md'
       ) {
         return [entryPath];
       }
