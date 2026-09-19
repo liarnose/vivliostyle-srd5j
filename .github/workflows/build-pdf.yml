@@ -2,9 +2,15 @@ name: Build PDFs
 
 on:
   workflow_dispatch:
+    inputs:
+      srd5j_ref:
+        description: SRD5J branch, tag, or commit to build from
+        required: false
+        default: main
+        type: string
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -15,6 +21,25 @@ jobs:
         uses: actions/checkout@v5
         with:
           submodules: recursive
+          fetch-depth: 0
+
+      - name: Resolve SRD5J ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref="${{ inputs.srd5j_ref }}"
+
+          git -C SRD5J fetch --all --tags --prune
+
+          if git -C SRD5J rev-parse --verify "${ref}^{commit}" >/dev/null 2>&1; then
+            git -C SRD5J checkout "${ref}"
+          else
+            git -C SRD5J fetch origin "${ref}"
+            git -C SRD5J checkout FETCH_HEAD
+          fi
+
+          echo "Using SRD5J ref: ${ref}"
+          git -C SRD5J rev-parse HEAD
 
       - name: Set up Node.js
         uses: actions/setup-node@v5
@@ -25,11 +50,42 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Get release metadata
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          srd5j_commit=$(git -C SRD5J rev-parse --short HEAD)
+          generator_version=$(node -p "require('./package.json').version")
+          release_tag="pdf-srd5j-${srd5j_commit}-generator-${generator_version}"
+          echo "srd5j_commit=${srd5j_commit}" >> "$GITHUB_OUTPUT"
+          echo "generator_version=${generator_version}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${release_tag}" >> "$GITHUB_OUTPUT"
+
       - name: Build PDFs
         run: npm run build
+
+      - name: Bundle generated PDFs
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip -r pdfs-dist.zip dist
 
       - name: Upload generated PDFs
         uses: actions/upload-artifact@v5
         with:
           name: generated-pdfs
           path: dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.metadata.outputs.release_tag }}
+          name: PDF build for SRD5J ${{ steps.metadata.outputs.srd5j_commit }}
+          body: |
+            Generated from SRD5J commit: ${{ steps.metadata.outputs.srd5j_commit }}
+            Generator version: ${{ steps.metadata.outputs.generator_version }}
+            Source SRD5J ref: ${{ inputs.srd5j_ref }}
+          files: |
+            dist/**/*.pdf
+            pdfs-dist.zip
