@@ -17,23 +17,24 @@ SRD5J は `SRD5J/` に Git サブモジュールとして追加してあり、`.
 npm run build
 ```
 
-- `SRD5J/` 配下の `README.md` を除くすべての `.md` ファイルを動的に探索します
-- 各 Markdown ファイルを個別に A4 PDF 化します
+- `SRD5J/` 配下のすべての `.md` ファイルを動的に探索します
+- サブフォルダ内の `.md` はファイル名順に結合し、フォルダ名をタイトルにした A4 PDF にします
+- `SRD5J/` ルート直下の `.md` は従来どおりファイルごとに A4 PDF 化します
 - 出力先は `dist/` です
-- PDF の配置は `SRD5J/` 配下の相対パスを維持します
+- フォルダ内の原稿をまとめた PDF はフォルダ名で `dist/` 直下に出力します
 - ビルド時に Vivliostyle のテーマ用ワークスペースも自動準備します
 
 例:
 
 - `SRD5J/AlignmentJ.md` → `dist/AlignmentJ.pdf`
-- `SRD5J/ClassesJ/BarbarianJ.md` → `dist/ClassesJ/BarbarianJ.pdf`
+- `SRD5J/02-ClassesJ/*.md` → ファイル名順に結合して `dist/02-ClassesJ.pdf`
 
 ## 構成
 
 - `vivliostyle.base.config.js`: 共通の組版設定
 - `scripts/build-pdfs.js`: 対象 Markdown の収集と PDF 出力処理
 
-`scripts/build-pdfs.js` は現在そのまま Markdown を組版しますが、今後 `vivliostyle-theme-spellbook-5e` 向けの拡張記法を反映する前処理パイプラインを追加しやすい構成にしています。
+`scripts/build-pdfs.js` は `vivliostyle-theme-spellbook-5e` 向けの拡張記法を反映する前処理を行ってから組版します。
 
 ## PDFリリースの運用案
 
