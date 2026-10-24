@@ -17,12 +17,11 @@ SRD5J は `SRD5J/` に Git サブモジュールとして追加してあり、`.
 npm run build
 ```
 
-- `SRD5J/` 配下のすべての `.md` ファイルを動的に探索します
-- サブフォルダ内の `.md` はファイル名順に結合し、フォルダ名をタイトルにした A4 PDF にします
-- `SRD5J/` ルート直下の `.md` は従来どおりファイルごとに A4 PDF 化します
+- `SRD5J/` 配下のすべての `.md` ファイルを探索します（`.git`、`node_modules`、隠しディレクトリは除外）
+- `SRD5J/` ルート直下の `.md` はファイルごとに PDF 化します
+- サブディレクトリ内の `.md` はディレクトリ単位でファイル名順に結合し、1つの PDF を出力します
 - 出力先は `dist/` です
-- フォルダ内の原稿をまとめた PDF はフォルダ名で `dist/` 直下に出力します
-- ビルド時に Vivliostyle のテーマ用ワークスペースも自動準備します
+- ビルド時に Vivliostyle のテーマ用ワークスペース（`.vivliostyle/themes`）を自動準備します
 
 例:
 
@@ -32,42 +31,23 @@ npm run build
 ## 構成
 
 - `vivliostyle.base.config.js`: 共通の組版設定
-- `scripts/build-pdfs.js`: 対象 Markdown の収集と PDF 出力処理
+- `scripts/build-pdfs.js`: 対象 Markdown の収集、前処理、PDF 出力処理
+- `scripts/manuscript-patches/`: 原稿に適用するビルド時パッチ
 
-`scripts/build-pdfs.js` は `vivliostyle-theme-spellbook-5e` 向けの拡張記法を反映する前処理を行ってから組版します。
+`scripts/build-pdfs.js` は次の順序で処理します。
 
-## PDFリリースの運用案
+1. `SRD5J/` を `.vivliostyle/manuscript` にコピー
+2. 見出し前の空行補正と `scripts/manuscript-patches/` のパッチ適用
+3. `vivliostyle-theme-spellbook-5e` 向けの拡張記法を反映して HTML を生成
+4. Vivliostyle CLI で PDF を生成
 
-SRD5Jの更新頻度が高いため、将来的にはGitHub Actionsの `workflow_dispatch` を使って、必要なときだけPDFリリースを手動実行する。
+## GitHub Actions での PDF リリース
 
-- Actionsの入力は、SRD5Jのブランチ、タグ、またはコミットハッシュを指定する `srd5j_ref` のみとする
-- `srd5j_ref` のデフォルトは `main` とする
-- Actions実行時に指定されたSRD5Jを取得してから `npm run build` を実行する
-- 実際にビルドへ使用したSRD5Jのコミットを `git -C SRD5J rev-parse --short HEAD` で取得する
-- GitHub Releaseのタグは `pdf-srd5j-<短縮コミットハッシュ>-generator-<生成ツールバージョン>` として自動生成する
-- PDFと `dist/` のZIPを、そのReleaseに添付する
+`.github/workflows/build-pdf.yml` で `workflow_dispatch` を提供しています。手動実行時に `srd5j_ref`（ブランチ・タグ・コミット）を指定できます。未指定時は `main` を使用します。
 
-例えばSRD5Jのコミットが `45025ae` の場合、Releaseタグは次のようになる。
+- `npm ci` と `npm run build` を実行
+- `dist/` を `pdfs-dist.zip` にまとめる
+- `dist/**/*.pdf` と `pdfs-dist.zip` を成果物として公開
+- Release タグを `pdf-srd5j-<短縮コミット>-generator-<package.json の version>` 形式で自動生成
 
-```text
-pdf-srd5j-45025ae-generator-1.0.0
-```
-
-生成ツールバージョンは、このリポジトリの `package.json` にある `version` を使用する。Actionsでは次のように取得してタグへ組み込む。
-
-```yaml
-- name: Get release metadata
-  id: metadata
-  run: |
-    srd5j_commit=$(git -C SRD5J rev-parse --short HEAD)
-    generator_version=$(node -p "require('./package.json').version")
-    echo "srd5j_commit=$srd5j_commit" >> "$GITHUB_OUTPUT"
-    echo "generator_version=$generator_version" >> "$GITHUB_OUTPUT"
-
-- name: Create GitHub Release
-  uses: softprops/action-gh-release@v2
-  with:
-    tag_name: pdf-srd5j-${{ steps.metadata.outputs.srd5j_commit }}-generator-${{ steps.metadata.outputs.generator_version }}
-```
-
-Releaseタグを入力項目にせず自動生成することで、Release名と実際の成果物のソースおよび生成ツール版を一致させる。同じSRD5Jコミットと生成ツールバージョンで再実行した場合は同じReleaseを更新する。Actionsのworkflowファイル追加は今後行う。
+例: SRD5J の短縮コミットが `45025ae` で生成ツールのバージョンが `1.0.0` の場合、Release タグは `pdf-srd5j-45025ae-generator-1.0.0` になります。
