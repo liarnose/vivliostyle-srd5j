@@ -1,6 +1,6 @@
 {
   "name": "vivliostyle-srd5j",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "paladin-nekohaus/SRD5Jをvivliostyleで組版する",
   "private": true,
   "scripts": {
