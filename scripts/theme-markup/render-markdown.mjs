@@ -17,12 +17,20 @@ import {
   remarkSb5eWideTables,
 } from './sb5e-plugins.mjs';
 
+function replaceAdjacentEmphasis(markdownString) {
+  return markdownString.replace(
+    /\*\*([^*\n]+?)\*\*\*([^*\n]+?)\*/g,
+    '<strong>$1</strong>*$2*',
+  );
+}
+
 /**
  * @param {string} markdownString
  * @returns {string} テーマ独自のRaw HTMLを注入済みのHTML文字列
  */
 export function renderMarkdown(markdownString) {
   const metadata = readMetadata(markdownString);
+  const preparedMarkdown = replaceAdjacentEmphasis(markdownString);
   const processor = VFM(
     {
       hardLineBreaks: true,
@@ -44,5 +52,5 @@ export function renderMarkdown(markdownString) {
     },
     metadata,
   );
-  return String(processor.processSync(markdownString));
+  return String(processor.processSync(preparedMarkdown));
 }
